@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Monitoramento de Filtros</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <h1>Painel de Monitoramento de Despoeiramento</h1>
+    
+    <div class="card-industrial">
+        <h2>➕ Cadastrar Novo Filtro na Planta</h2>
+        <div class="form-group">
+            <input type="number" id="cadId" placeholder="ID do Ativo (ex: 611505)">
+            <input type="number" id="cadMangas" placeholder="Qtd. de Mangas">
+            <input type="text" id="cadMaterial" placeholder="Material (ex: Poliéster)">
+            <button onclick="cadastrarFiltro()">Salvar Ativo</button>
+        </div>
+    </div>
+
+    <hr>
+
+    <div class="card-industrial">
+        <h2>📝 Formulário de Inspeção / Aferição</h2>
+        <div class="form-group">
+            <input type="number" id="updId" placeholder="ID do Filtro">
+            <input type="number" step="0.1" id="updDeltap" placeholder="Pressão (mmH2O)">
+            <input type="date" id="updData">
+            <button onclick="atualizarDados()" style="background-color: #fbc02d; color: black;">Atualizar Medições</button>
+        </div>
+    </div>
+
+    <hr>
+
+    <div class="card-industrial">
+    <h2>📋 Inventário de Ativos</h2>
+    <div id="tabelaInventario" class="tabela-container">
+        <p style="text-align: center; color: #888;">Carregando dados da planta...</p>
+    </div>
+</div>
+
+    <div class="dashboard">
+        <h2>🔍 Monitoramento em Tempo Real</h2>
+        <div class="controles">
+            <input type="number" id="idFiltro" placeholder="Digite o ID para analisar">
+            <button onclick="chamarPython()">Analisar Filtro</button>
+        </div>
+
+        <div id="resultado">
+            Aguardando ação...
+        </div>
+    </div>
+
+    <script>
+        // Função para monitorar o status
+        async function chamarPython() {
+            const id = document.getElementById('idFiltro').value;
+            const campoResultado = document.getElementById('resultado');
+            if (!id) return;
+
+            try {
+                const resposta = await fetch(`/api/analisar/${id}`);
+                const dados = await resposta.json();
+
+                if (dados.erro || !resposta.ok) {
+                    campoResultado.innerHTML = `<p style="color: #ff4d4d;">⚠️ ${dados.erro || dados.mensagem}</p>`;
+                    campoResultado.style.backgroundColor = 'transparent';
+                    campoResultado.style.color = 'white';
+                } else {
+                    campoResultado.innerHTML = `
+                        <h3>Resultados do Filtro ${dados.id}</h3>
+                        <p><strong>Status:</strong> ${dados.status}</p>
+                        <p><strong>Pressão Atual:</strong> ${dados.deltap} mmH2O</p>
+                        <small>${dados.mensagem}</small>
+                    `;
+                    
+                    const status = dados.status.toUpperCase();
+                    if (status === 'CRÍTICO') {
+                        campoResultado.style.backgroundColor = '#d32f2f';
+                        campoResultado.style.color = 'white';
+                    } else if (status === 'ATENÇÃO') {
+                        campoResultado.style.backgroundColor = '#fbc02d';
+                        campoResultado.style.color = '#000000';
+                    } else {
+                        campoResultado.style.backgroundColor = '#388e3c';
+                        campoResultado.style.color = 'white';
+                    }
+                    campoResultado.style.borderRadius = "12px";
+                    campoResultado.style.boxShadow = "0 4px 15px rgba(0,0,0,0.5)";
+                }
+            } catch (erro) {
+                console.error("Erro:", erro);
+            }
+        }
+
+        // Função para cadastrar novo ativo
+        async function cadastrarFiltro() {
+            const dados = {
+                id: document.getElementById('cadId').value,
+                quantidade_mangas: document.getElementById('cadMangas').value,
+                material_manga: document.getElementById('cadMaterial').value
+            };
+
+            const resposta = await fetch('/api/cadastrar', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(dados)
+            });
+            const result = await resposta.json();
+            alert(result.mensagem || result.erro);
+        }
+
+        // Função para atualizar medições de campo
+        async function atualizarDados() {
+            const dados = {
+                id: document.getElementById('updId').value,
+                deltap: document.getElementById('updDeltap').value,
+                manutencao: document.getElementById('updData').value
+            };
+
+            const resposta = await fetch('/api/atualizar', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(dados)
+            });
+            const result = await resposta.json();
+            alert(result.mensagem || result.erro);
+            chamarPython(); 
+        }
+
+        async function carregarInventario() {
+    const container = document.getElementById('tabelaInventario');
+    
+    try {
+        const resposta = await fetch('/api/historico/');
+        const filtros = await resposta.json();
+
+        if (filtros.length === 0) {
+            container.innerHTML = "<p>Nenhum filtro cadastrado no banco de dados.</p>";
+            return;
+        }
+
+        // Criando a tabela com estilo industrial
+        let html = `
+            <table style="width:100%; border-collapse: collapse; margin-top: 15px; color: white; background-color: #1a1a1a;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #00d4ff; text-align: left;">
+                        <th style="padding: 12px;">ID do Filtro</th>
+                        <th style="padding: 12px;">Status</th>
+                        <th style="padding: 12px;">Última Manutenção</th>
+                        <th style="padding: 12px;">Pressão (mmH2O)</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
+        filtros.forEach(f => {
+            // Lógica de cores para o Status (UX Industrial)
+            let corFundo = '#388e3c'; // Verde (Operacional)
+            let corTexto = 'white';
+
+            if (f.status === 'CRÍTICO') {
+                corFundo = '#d32f2f'; // Vermelho
+            } else if (f.status === 'ATENÇÃO') {
+                corFundo = '#fbc02d'; // Amarelo
+                corTexto = 'black';   // Contraste para leitura
+            }
+
+            html += `
+                <tr style="border-bottom: 1px solid #333;">
+                    <td style="padding: 10px;">${f.id}</td>
+                    <td style="padding: 10px;">
+                        <span style="background-color: ${corFundo}; color: ${corTexto}; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.85rem;">
+                            ${f.status}
+                        </span>
+                    </td>
+                    <td style="padding: 10px;">${f.ultima_manutencao}</td>
+                    <td style="padding: 10px;">${f.deltap}</td>
+                </tr>`;
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+
+    } catch (erro) {
+        console.error("Erro ao carregar inventário:", erro);
+        container.innerHTML = "<p style='color: red;'>Erro ao conectar com o banco de dados.</p>";
+    }
+}
+
+// Gatilho para carregar assim que abrir a página
+window.onload = () => {
+    carregarInventario();
+    // Se você tiver outras funções de inicialização, coloque-as aqui
+};
+
+        setInterval(chamarPython, 5000);
+    </script>
+</body>
+</html>
