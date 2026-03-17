@@ -3,11 +3,14 @@ from flask_cors import CORS
 import os
 from datetime import datetime, timedelta
 from sqlalchemy import create_engine, Column, Integer, String, Date, Float, DateTime, Text
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, declarative_base
+from dotenv import load_dotenv
 
 app = Flask(__name__)
 CORS(app)
+
+basedir = os.path.abspath(os.path.dirname(__file__))
+load_dotenv(os.path.join(basedir, '.env'))
 
 Base = declarative_base()
 
@@ -33,15 +36,20 @@ class LogFiltro(Base):
     status_novo = Column(String(50))
     data_evento = Column(DateTime, default=datetime.now)
 
-# Configuração do Banco de Dados
-engine = create_engine('mysql+mysqlconnector://root:23245623@localhost:3306/filtros')
+# Configuração do banco de dados
+db_uri = os.getenv('DATABASE_URI')
+
+if not db_uri:
+    raise ValueError("⚠️ ERRO CRÍTICO: Variável DATABASE_URI não encontrada. Verifique se o ficheiro .env existe.")
+
+engine = create_engine(db_uri)
 Session = sessionmaker(bind=engine)
 session = Session()
 
 # Cria as tabelas se não existirem
 Base.metadata.create_all(engine)
 
-# --- REGRAS DE NEGÓCIO ---
+#Calculo de análise Delta P
 def analise_deltap(id_filtro):
     LIMITE_ATENCAO = 100.2 #mmH2O
     LIMITE_CRITICO = 60.8 #mmH2O
@@ -87,8 +95,15 @@ def analisar_filtro(id_filtro):
 def cadastrar_filtro():
     dados = request.json
     try:
+        id_filtro = int(dados['id'])
+
+        filtro_existente = session.query(Filtro).filter_by(id=id_filtro).first()
+            
+        if filtro_existente:
+            return jsonify({"erro": f"Operação negada: O ativo com ID {id_filtro} já está cadastrado no sistema."}), 409
+                
         novo_filtro = Filtro(
-            id=int(dados['id']),
+            id=id_filtro,
             status=dados.get('status', 'OPERACIONAL'),
             quantidade_mangas=dados.get('quantidade_mangas', 0),
             material_manga=dados.get('material_manga', 'Não definido'),
@@ -98,7 +113,8 @@ def cadastrar_filtro():
         )
         session.add(novo_filtro)
         session.commit()
-        return jsonify({"mensagem": f"Filtro {dados['id']} cadastrado com sucesso!"}), 201
+        return jsonify({"mensagem": f"Filtro {id_filtro} cadastrado com sucesso!"}), 201
+            
     except Exception as e:
         session.rollback()
         return jsonify({"mensagem": "Erro ao cadastrar filtro", "erro": str(e)}), 400
@@ -145,6 +161,21 @@ def listar_filtros():
             'observacoes': f.observacoes # Retornando para a tabela do front
         })
     return jsonify(lista_filtros)
+
+@app.route('/api/excluir/<int:id_filtro>', methods=['DELETE'])
+def excluir_filtro(id_filtro):
+    filtro_alvo = session.query(Filtro).filter_by(id=id_filtro).first()
+
+    if not filtro_alvo:
+        return jsonify({'erro': 'Operação falhou: Filtro não encontrado no banco de dados.'}), 404
+    
+    try:
+        session.delete(filtro_alvo)
+        session.commit()
+        return jsonify({'mensagem': f'Filtro {id_filtro} removido do sistema com sucesso!'}), 200
+    except Exception as e:
+        session.rollback()
+        return jsonify({'erro': f'Erro interno ao tentar excluir: {str(e)}'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
