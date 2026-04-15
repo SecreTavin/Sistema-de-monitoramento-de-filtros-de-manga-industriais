@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, render_template
+""" from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
 import os
 from datetime import datetime, timedelta
@@ -179,3 +179,5 @@ def excluir_filtro(id_filtro):
 
 if __name__ == '__main__':
     app.run(debug=True)
+ """
+
