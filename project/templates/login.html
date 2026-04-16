@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Login | Painel SCADA</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .login-container {
+            max-width: 400px;
+            margin: 10vh auto;
+            text-align: center;
+        }
+        .login-btn { width: 100%; margin-top: 20px; padding: 15px; font-size: 1.1rem;}
+        #msgErro { color: var(--status-crit); margin-top: 15px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="login-container card-industrial">
+        <h1 class="header-title" style="border:none; margin-bottom: 10px;">Autenticação</h1>
+        <p style="color: var(--text-muted); margin-bottom: 30px;">Acesso restrito ao time de Engenharia.</p>
+        
+        <div class="form-group">
+            <input type="text" id="username" placeholder="Usuário ID">
+            <input type="password" id="password" placeholder="Senha de Acesso">
+            <button class="login-btn" onclick="fazerLogin()">Acessar Painel</button>
+        </div>
+        <p id="msgErro"></p>
+    </div>
+
+    <script>
+        async function fazerLogin() {
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+            const msg = document.getElementById('msgErro');
+
+            if(!u || !p) { msg.innerText = "Preencha todos os campos."; return; }
+
+            try {
+                const resposta = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username: u, password: p})
+                });
+                
+                if (resposta.ok) {
+                    window.location.href = "/"; // Se aprovado, vai para o painel!
+                } else {
+                    const dados = await resposta.json();
+                    msg.innerText = dados.erro;
+                }
+            } catch(e) { msg.innerText = "Erro de conexão com o servidor."; }
+        }
+    </script>
+</body>
+</html>

@@ -1,18 +1,58 @@
-from flask import render_template, jsonify, request
+from flask import render_template, jsonify, request, session, redirect, url_for
 from datetime import datetime
-from app.models import session, Filtro
+from functools import wraps
+from app.models import session as db_session, Filtro, Usuario
 from app.services import analise_deltap
+from app.services import session as db_session
 
 def init_routes(app):
+
+    def login_required(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if 'user_id' not in session:
+                return redirect(url_for('login'))
+            return f(*args, **kwargs)
+        return decorated_function
+    
+    @app.route("/login")
+    def login():
+        return render_template("login.html")
     
     @app.route("/")
+    @login_required
     def index():
         return render_template("index.html")
+    
+    @app.route('/api/login', methods=['POST'])
+    def api_login():
+        dados = request.json
+        usuario_digitado = dados.get('username')
+        senha_digitada = dados.get('password')
+
+        # Busca o utilizador no banco
+        user_db = db_session.query(Usuario).filter_by(username=usuario_digitado).first()
+
+        # Verifica se ele existe e se a senha bate
+        if user_db and user_db.check_password(senha_digitada):
+            # Força a extração dos valores simples usando str() para evitar bugs de serialização
+            session['user_id'] = str(user_db.id)
+            session['username'] = str(user_db.username)
+            return jsonify({'mensagem': 'Login aprovado!'}), 200
+        
+        return jsonify({'erro': 'Usuário ou senha incorretos!'}), 401
+    
+    @app.route('/api/logout', methods=['POST'])
+    def api_logout():
+        session.clear()
+        return jsonify({'mensagem': 'Logout bem-sucedido'}), 200
+    
 
     @app.route('/api/analisar/<int:id_filtro>', methods=['GET'])
+    @login_required
     def analisar_filtro(id_filtro):
         valor = analise_deltap(id_filtro)
-        filtro = session.query(Filtro).filter_by(id=id_filtro).first()
+        filtro = db_session.query(Filtro).filter_by(id=id_filtro).first()
         
         if filtro:
             return jsonify({
@@ -25,11 +65,12 @@ def init_routes(app):
         return jsonify({'mensagem': 'Filtro não encontrado'}), 404
 
     @app.route('/api/cadastrar', methods=['POST'])
+    @login_required
     def cadastrar_filtro():
         dados = request.json
         try:
             id_filtro = int(dados['id'])
-            filtro_existente = session.query(Filtro).filter_by(id=id_filtro).first()
+            filtro_existente = db_session.query(Filtro).filter_by(id=id_filtro).first()
             
             if filtro_existente:
                 return jsonify({"erro": f"Operação negada: O ativo com ID {id_filtro} já está cadastrado."}), 409
@@ -43,18 +84,19 @@ def init_routes(app):
                 ultima_afericao_deltap= 0.0,
                 observacoes="Ativo recém-cadastrado. Nenhuma avaria reportada."
             )
-            session.add(novo_filtro)
-            session.commit()
+            db_session.add(novo_filtro)
+            db_session.commit()
             return jsonify({"mensagem": f"Filtro {id_filtro} cadastrado com sucesso!"}), 201
             
         except Exception as e:
-            session.rollback()
+            db_session.rollback()
             return jsonify({"mensagem": "Erro ao cadastrar filtro", "erro": str(e)}), 400
 
     @app.route('/api/atualizar', methods=['POST'])
+    @login_required
     def atualizar_filtro():
         dados = request.json
-        filtro_alvo = session.query(Filtro).filter_by(id=dados['id']).first()
+        filtro_alvo = db_session.query(Filtro).filter_by(id=dados['id']).first()
 
         if not filtro_alvo:
             return jsonify({'erro': 'Filtro não encontrado'}), 404
@@ -69,17 +111,18 @@ def init_routes(app):
             if 'observacoes' in dados and dados['observacoes'].strip() != '':
                 filtro_alvo.observacoes = dados['observacoes']
             
-            session.commit()
+            db_session.commit()
             analise_deltap(filtro_alvo.id) 
 
             return jsonify({'mensagem': 'Dados de inspeção atualizados com sucesso!'})
         except Exception as e:
-            session.rollback()
+            db_session.rollback()
             return jsonify({'erro': str(e)}), 400
 
     @app.route('/api/historico/', methods=['GET'])
+    @login_required
     def listar_filtros():
-        filtros = session.query(Filtro).all()
+        filtros = db_session.query(Filtro).all()
         lista_filtros = []
         for f in filtros:
             lista_filtros.append({
@@ -92,16 +135,17 @@ def init_routes(app):
         return jsonify(lista_filtros)
 
     @app.route('/api/excluir/<int:id_filtro>', methods=['DELETE'])
+    @login_required
     def excluir_filtro(id_filtro):
-        filtro_alvo = session.query(Filtro).filter_by(id=id_filtro).first()
+        filtro_alvo = db_session.query(Filtro).filter_by(id=id_filtro).first()
 
         if not filtro_alvo:
             return jsonify({'erro': 'Operação falhou: Filtro não encontrado no banco de dados.'}), 404
         
         try:
-            session.delete(filtro_alvo)
-            session.commit()
+            db_session.delete(filtro_alvo)
+            db_session.commit()
             return jsonify({'mensagem': f'Filtro {id_filtro} removido do sistema com sucesso!'}), 200
         except Exception as e:
-            session.rollback()
+            db_session.rollback()
             return jsonify({'erro': f'Erro interno ao tentar excluir: {str(e)}'}), 500

@@ -163,6 +163,11 @@ async function chamarPython() {
             }
         }
 
+        async function fazerLogout() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = "/login";
+}
+
         window.onload = () => {
             carregarInventario();
             setInterval(carregarInventario, 10000); 

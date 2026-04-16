@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import create_engine, Column, Integer, String, Date, Float, DateTime, Text
 from sqlalchemy.orm import sessionmaker, declarative_base
 from dotenv import load_dotenv
+from werkzeug.security import generate_password_hash, check_password_hash
 from config import DATABASE_URI
 
 engine = create_engine(DATABASE_URI)
@@ -41,5 +42,18 @@ class LogFiltro(Base):
     status_novo = Column(String(50))
     data_evento = Column(DateTime, default=datetime.now)
 
+class Usuario(Base):
+    __tablename__ = 'usuarios'
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String(50), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+    
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+    
 # Cria as tabelas se não existirem
 Base.metadata.create_all(engine)
