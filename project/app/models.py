@@ -3,14 +3,13 @@ from flask_cors import CORS
 import os
 from datetime import datetime, timedelta
 from sqlalchemy import create_engine, Column, Integer, String, Date, Float, DateTime, Text
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import declarative_base, sessionmaker, scoped_session
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
 from config import DATABASE_URI
 
-engine = create_engine(DATABASE_URI)
-Session = sessionmaker(bind=engine)
-session = Session()
+engine = create_engine(DATABASE_URI, pool_pre_ping=True, pool_recycle=3600)
+session = scoped_session(sessionmaker(bind=engine))
 
 app = Flask(__name__)
 CORS(app)

@@ -1,6 +1,7 @@
 from flask import Flask
 from flask_cors import CORS
 from config import SECRET_KEY
+from app.models import session
 
 def create_app():
     #caminhos relativos para encontrar as pastas corretamente.
@@ -15,4 +16,8 @@ def create_app():
     from app.routes import init_routes
     init_routes(app)
 
+    @app.teardown_appcontext
+    def shutdown_session(exception=None):
+        session.remove()
+            
     return app
