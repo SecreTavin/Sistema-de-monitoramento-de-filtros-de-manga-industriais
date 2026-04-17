@@ -11,9 +11,6 @@ from config import DATABASE_URI
 engine = create_engine(DATABASE_URI, pool_pre_ping=True, pool_recycle=3600)
 session = scoped_session(sessionmaker(bind=engine))
 
-app = Flask(__name__)
-CORS(app)
-
 basedir = os.path.abspath(os.path.dirname(__file__))
 load_dotenv(os.path.join(basedir, '.env'))
 

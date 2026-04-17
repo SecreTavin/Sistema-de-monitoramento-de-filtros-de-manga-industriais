@@ -3,7 +3,7 @@ from datetime import datetime
 from functools import wraps
 from app.models import session as db_session, Filtro, Usuario
 from app.services import analise_deltap
-from app.services import session as db_session
+
 
 def init_routes(app):
 
