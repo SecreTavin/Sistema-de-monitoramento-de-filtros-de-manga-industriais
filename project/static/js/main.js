@@ -10,6 +10,10 @@ async function chamarPython() {
                 if (dados.erro || !resposta.ok) {
                     campoResultado.innerHTML = `<p style="color: var(--status-crit);">⚠️ ${dados.erro || dados.mensagem}</p>`;
                     campoResultado.style.borderColor = 'var(--status-crit)';
+                    
+                    if (typeof gsap !== "undefined" && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                        gsap.from(campoResultado.querySelector('p'), { duration: 0.3, x: -10, opacity: 0, ease: "power2.out" });
+                    }
                 } else {
                     let corStatus = 'var(--status-ok)';
                     if (dados.status === 'CRÍTICO') corStatus = 'var(--status-crit)';
@@ -38,6 +42,18 @@ async function chamarPython() {
                         </div>
                     `;
                     campoResultado.style.borderColor = corStatus;
+
+                    // Animação de entrada dos dados retornados pelo backend no Diagnóstico (GSAP)
+                    if (typeof gsap !== "undefined" && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                        // Animação do cabeçalho (ID e Badge)
+                        gsap.from("#resultado h3, #resultado .status-badge", {
+                            duration: 0.4, y: -10, opacity: 0, stagger: 0.1, ease: "power2.out"
+                        });
+                        // Animação em cascata dos cards de informação da telemetria
+                        gsap.from("#resultado .resultado-dado, #resultado .resultado-avaria", {
+                            duration: 0.5, y: 15, opacity: 0, stagger: 0.1, delay: 0.15, ease: "power3.out"
+                        });
+                    }
                 }
             } catch (erro) { console.error("Erro:", erro); }
         }
@@ -87,7 +103,7 @@ async function chamarPython() {
             carregarInventario();
         }
 
-        // Função de Exclusão movida para fora para funcionar no HTML
+        
         async function excluirFiltro(id) {
             const confirmacao = confirm(`⚠️ ATENÇÃO: Tem certeza que deseja excluir o ativo ${id} definitivamente do sistema?`);
             if (!confirmacao) return; 
@@ -147,7 +163,7 @@ async function chamarPython() {
                             <td><span class="status-badge" style="background-color: ${corFundo}; color: ${corTexto};">${f.status}</span></td>
                             <td>${f.deltap}</td>
                             <td>${f.ultima_manutencao}</td>
-                            <td class="obs-cell" title="${obs}">${obs}</td>
+                            <td><div class="obs-cell" title="${obs}">${obs}</div></td>
                             <td>
                                 <button class="btn-danger" onclick="excluirFiltro(${f.id})" title="Excluir Ativo">␡</button>
                             </td>
@@ -156,6 +172,28 @@ async function chamarPython() {
 
                 html += '</tbody></table>';
                 container.innerHTML = html;
+
+                // Animação de entrada dos itens da tabela com GSAP e Efeitos de Hover
+                if (typeof gsap !== "undefined" && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                    const linhas = container.querySelectorAll("tbody tr");
+                    gsap.from(linhas, {
+                        duration: 0.4,
+                        y: 15,
+                        opacity: 0,
+                        stagger: 0.05,
+                        ease: "power2.out"
+                    });
+
+                    // Micro-interações de Hover nas linhas
+                    linhas.forEach(linha => {
+                        linha.addEventListener("mouseenter", () => {
+                            gsap.to(linha, { y: -2, scale: 1.01, backgroundColor: "rgba(255, 255, 255, 0.08)", duration: 0.2, ease: "power2.out" });
+                        });
+                        linha.addEventListener("mouseleave", () => {
+                            gsap.to(linha, { y: 0, scale: 1, backgroundColor: "transparent", duration: 0.2, ease: "power2.out" });
+                        });
+                    });
+                }
 
             } catch (erro) {
                 console.error("Erro ao carregar inventário:", erro);
@@ -171,4 +209,15 @@ async function chamarPython() {
         window.onload = () => {
             carregarInventario();
             setInterval(carregarInventario, 10000); 
+
+            // Animação de entrada dos cards com GSAP
+            if (typeof gsap !== "undefined" && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                gsap.from(".card-industrial", {
+                    duration: 0.6,
+                    y: 40,
+                    opacity: 0,
+                    stagger: 0.1,
+                    ease: "power3.out"
+                });
+            }
         };

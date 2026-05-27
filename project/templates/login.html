@@ -16,7 +16,7 @@
 </head>
 <body>
 
-    <div id="loadingOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg-color); z-index:9999; justify-content:center; align-items:center; flex-direction:column;">
+    <div id="loadingOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); z-index:9999; justify-content:center; align-items:center; flex-direction:column;">
         <div class="loader"></div> <h2 style="color:var(--primary); margin-top:20px; letter-spacing:2px;">INICIALIZANDO SISTEMA...</h2>
         <p id="loadingStatus" style="color:var(--text-muted); margin-top:10px;">Sincronizando banco de dados...</p>
     </div>
@@ -33,7 +33,18 @@
         <p id="msgErro"></p>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script>
+        // Animação de entrada da tela de login com GSAP
+        document.addEventListener("DOMContentLoaded", () => {
+            gsap.from(".login-container", {
+                duration: 0.8,
+                y: 30,
+                opacity: 0,
+                ease: "power3.out"
+            });
+        });
+
         async function fazerLogin() {
             const u = document.getElementById('username').value;
             const p = document.getElementById('password').value;
@@ -51,11 +62,25 @@
                 if (resposta.ok) {
                     msg.innerText = "";
                     
-                    document.getElementById('loadingOverlay').style.display = 'flex';
+                    const overlay = document.getElementById('loadingOverlay');
+                    overlay.style.display = 'flex';
+                    overlay.style.opacity = 0;
 
-                    setTimeout(() => {
-                        window.location.href = "/"; // Se aprovado, vai para o painel!
-                    }, 2000);
+                    if (typeof gsap !== "undefined" && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                        // Fade-in da tela de overlay em Glassmorphism
+                        gsap.to(overlay, { duration: 0.5, opacity: 1, ease: "power2.out" });
+                        
+                        // Animação em cascata (stagger) dos elementos dentro do loading
+                        gsap.from(overlay.children, { duration: 0.5, y: 20, opacity: 0, stagger: 0.1, delay: 0.2, ease: "power2.out" });
+                        
+                        // Fade-out suave em todo o body antes de redirecionar para a dashboard
+                        setTimeout(() => {
+                            gsap.to("body", { duration: 0.4, opacity: 0, onComplete: () => window.location.href = "/" });
+                        }, 2000);
+                    } else {
+                        overlay.style.opacity = 1;
+                        setTimeout(() => { window.location.href = "/"; }, 2000);
+                    }
                 }
                 
                 else {
